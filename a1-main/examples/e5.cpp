@@ -23,6 +23,11 @@ public:
         glm::vec3 max;
     };
 
+    struct Sphere {
+        glm::vec3 center;
+        float radius;
+    };
+
     RayTracer() {
         // Initialize the ray tracer.
         camera = vec3(0.0f, 0.0f, 0.0f);
@@ -31,9 +36,9 @@ public:
         aspectRatio = 4.0f / 3.0f;
         frameWidth = 640;
         frameHeight = 480;
-        spheres.push_back(vec3(0.0f, 0.0f, -5.0f));
-        spheres.push_back(vec3(1.0f, 0.0f, -5.0f));
-        spheres.push_back(vec3(0.0f, 1.0f, -5.0f));
+        spheres.push_back(Sphere{vec3(0.0f, 0.0f, -5.0f), 1.0f});
+        spheres.push_back(Sphere{vec3(1.0f, 0.0f, -5.0f), 1.0f});
+        spheres.push_back(Sphere{vec3(0.0f, 1.0f, -5.0f), 1.0f});
         planes.push_back(Plane{vec3(0.0f, -5.0f, -10.0f), vec3(0.0f, 1.0f, 0.0f)});
         aabbs.push_back(AABB{vec3(-2.0f, -1.0f, -5.0f), vec3(-1.0f, 1.0f, -3.0f)});
     }
@@ -121,12 +126,12 @@ public:
     //     // SDL_UpdateWindowSurface(window);
     // }
 
-    float intersectSphere(const vec3& origin, const vec3& direction, const vec3& center) {
+    float intersectSphere(const vec3& origin, const vec3& direction, const Sphere& sphere) {
         // Compute the intersection of a ray with a sphere.
-        vec3 oc = origin - center;
+        vec3 oc = origin - sphere.center;
         float a = dot(direction, direction);
         float b = 2.0f * dot(oc, direction);
-        float c = dot(oc, oc) - 1.0f;
+        float c = dot(oc, oc) - (sphere.radius * sphere.radius);
         float discriminant = b * b - 4.0f * a * c;
         if (discriminant < 0.0f) return INFINITY;
         return (-b - sqrt(discriminant)) / (2.0f * a);
@@ -218,7 +223,7 @@ public:
 
 
 
-    std::vector<glm::vec3> spheres;
+    std::vector<Sphere> spheres;
     std::vector<float> radii;
     std::vector<Plane> planes;
     std::vector<AABB> aabbs;
