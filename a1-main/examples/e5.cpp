@@ -12,6 +12,17 @@ using namespace glm;
 
 class RayTracer {
 public:
+
+    struct Plane {
+        glm::vec3 point;
+        glm::vec3 normal;
+    };
+
+    struct AABB {
+        glm::vec3 min;
+        glm::vec3 max;
+    };
+
     RayTracer() {
         // Initialize the ray tracer.
         camera = vec3(0.0f, 0.0f, 0.0f);
@@ -23,8 +34,10 @@ public:
         spheres.push_back(vec3(0.0f, 0.0f, -5.0f));
         spheres.push_back(vec3(1.0f, 0.0f, -5.0f));
         spheres.push_back(vec3(0.0f, 1.0f, -5.0f));
-
+        planes.push_back(Plane{vec3(0.0f, -5.0f, -10.0f), vec3(0.0f, 1.0f, 0.0f)});
+        aabbs.push_back(AABB{vec3(-2.0f, -1.0f, -5.0f), vec3(-1.0f, 1.0f, -3.0f)});
     }
+
     void render(){
         // Render the scene.
         // Clear the framebuffer
@@ -42,10 +55,30 @@ public:
                 for (int k = 0; k < spheres.size(); k++) {
                     t = min(t, intersectSphere(origin, direction, spheres[k]));
                 }
+                float tPlane = INFINITY;
+                for (int k = 0; k < planes.size(); k++) {
+                    tPlane = min(tPlane, intersectPlane(origin, direction, planes[k]));
+                }
+
+                float tBox = INFINITY;
+                for (int k = 0; k < aabbs.size(); k++) {
+                    tBox = min(tBox, intersectAABB(origin, direction, aabbs[k]));
+                }
+
                 Uint32 color;
-                if (t < INFINITY) {
-                    float l = 255*(1.0f - t);
-                    color = SDL_MapRGBA(format, l, l, l, 255); // grey proportional to t
+                if (tBox < INFINITY || tPlane < INFINITY || t < INFINITY) {
+                    if(tBox < t && tBox < tPlane){
+                        float l = 255;
+                        color = SDL_MapRGBA(format, l, 0, 0, 255); // red
+                    }
+                    else if(tPlane < t){
+                        float l = 255;
+                        color = SDL_MapRGBA(format, l, 100, l, 255); // grey proportional to t
+                    }
+                    else{
+                        float l = 255*(1.0f - t);
+                        color = SDL_MapRGBA(format, l, l, l, 255); // grey proportional to t
+                    }
                 } else {
                     color = SDL_MapRGBA(format, 0, 0, 0, 255); // black
                 }
@@ -99,6 +132,48 @@ public:
         return (-b - sqrt(discriminant)) / (2.0f * a);
     }
 
+    float intersectPlane(const glm::vec3& origin, const glm::vec3& direction, const Plane& plane) {
+        float denom = dot(plane.normal, direction);
+        if (abs(denom) > 1e-6) {
+            glm::vec3 p0l0 = plane.point - origin;
+            float t = dot(p0l0, plane.normal) / denom;
+            if (t >= 0) {
+                return t;
+           }
+        }
+        return INFINITY;
+    }
+
+    float intersectAABB(const glm::vec3& origin, const glm::vec3& direction, const AABB& aabb) {
+        float tmin = -INFINITY;
+        float tmax = INFINITY;
+    
+        for (int i = 0; i < 3; ++i) {
+            if (abs(direction[i]) < 1e-6) {
+                if (origin[i] < aabb.min[i] || origin[i] > aabb.max[i]) {
+                    return false;
+                }
+            } else {
+                float t1 = (aabb.min[i] - origin[i]) / direction[i];
+                float t2 = (aabb.max[i] - origin[i]) / direction[i];
+    
+                tmin = glm::max(tmin, glm::min(t1, t2));
+                tmax = glm::min(tmax, glm::max(t1, t2));
+            }
+        }
+    
+        if (tmax >= tmin && tmax >= 0) {
+            if(tmin<0){
+                return tmax;
+            }
+            else{
+                return tmin;
+            }            
+        }
+    
+        return INFINITY;
+    }
+
     bool initialize() {
         bool success = true;
         if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
@@ -145,6 +220,8 @@ public:
 
     std::vector<glm::vec3> spheres;
     std::vector<float> radii;
+    std::vector<Plane> planes;
+    std::vector<AABB> aabbs;
     glm::vec3 camera;
     glm::vec3 cameraDirection;
     float verticalFieldOfView;
