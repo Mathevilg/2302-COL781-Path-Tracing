@@ -13,6 +13,53 @@ using namespace glm;
 class RayTracer {
 public:
 
+    class Camera{
+    public:
+
+        vec3 Eye;
+        vec3 ViewDir;
+        vec3 UpVec;
+        
+        Camera(){
+            Eye = vec3(0.0f, 0.0f, 0.0f);
+            ViewDir = vec3(0.0f, 0.0f, -1.0f);
+            UpVec = vec3(0.0f, 1.0f, 0.0f);
+        }
+
+        Camera(vec3 eye, vec3 viewDir, vec3 upVec){
+            Eye = eye;
+            ViewDir = viewDir;
+            UpVec = upVec;
+        }
+
+        mat4 getViewMatrix() const{
+            return lookAt(Eye, ViewDir, UpVec);
+        }
+
+        void moveForward(float delta){
+            Eye += delta * ViewDir;
+        }
+
+        void moveRight(float delta){
+            Eye += delta * cross(ViewDir, UpVec);
+        }
+
+        void moveUp(float delta){
+            Eye += delta * UpVec;
+        }
+
+        void rotateRight(float angle){
+            ViewDir = rotate(mat4(1.0f), -radians(angle), UpVec) * vec4(ViewDir, 0.0f);
+        }
+
+        void rotateUp(float angle){
+            vec3 right = cross(ViewDir, UpVec);
+            ViewDir = rotate(mat4(1.0f), -radians(angle), right) * vec4(ViewDir, 0.0f);
+            UpVec = rotate(mat4(1.0f), -radians(angle), right) * vec4(UpVec, 0.0f);
+        }
+
+};
+
     struct Plane {
         glm::vec3 point;
         glm::vec3 normal;
@@ -30,15 +77,14 @@ public:
 
     RayTracer() {
         // Initialize the ray tracer.
-        camera = vec3(0.0f, 0.0f, 0.0f);
-        cameraDirection = vec3(0.0f, 0.0f, -1.0f);
+        
         verticalFieldOfView = 60.0f;
         aspectRatio = 4.0f / 3.0f;
         frameWidth = 640;
         frameHeight = 480;
-        spheres.push_back(Sphere{vec3(0.0f, 0.0f, -5.0f), 1.0f});
-        spheres.push_back(Sphere{vec3(1.0f, 0.0f, -5.0f), 1.0f});
-        spheres.push_back(Sphere{vec3(0.0f, 1.0f, -5.0f), 1.0f});
+        spheres.push_back(Sphere{vec3(0.0f, 0.0f, -5.0f), 0.5f});
+        spheres.push_back(Sphere{vec3(1.0f, 0.0f, -5.0f), 0.5f});
+        spheres.push_back(Sphere{vec3(0.0f, 1.0f, -5.0f), 0.5f});
         planes.push_back(Plane{vec3(0.0f, -5.0f, -10.0f), vec3(0.0f, 1.0f, 0.0f)});
         aabbs.push_back(AABB{vec3(-2.0f, -1.0f, -5.0f), vec3(-1.0f, 1.0f, -3.0f)});
     }
@@ -54,8 +100,8 @@ public:
                 x = 2*x - 1;                     // [0, 1] -> [-1, 1]
                 float y = (j + 0.5)/frameHeight; // [0, h] -> [0, 1]
                 y = 1 - 2*y;                     // [0, 1] -> [1, -1]
-                vec3 origin = camera;
-                vec3 direction = normalize(cameraDirection + vec3(x, y, 0.0f));
+                vec3 origin = camera.Eye;
+                vec3 direction = normalize(camera.ViewDir + vec3(x, y, 0.0f));
                 float t = INFINITY;
                 for (int k = 0; k < spheres.size(); k++) {
                     t = min(t, intersectSphere(origin, direction, spheres[k]));
@@ -227,8 +273,7 @@ public:
     std::vector<float> radii;
     std::vector<Plane> planes;
     std::vector<AABB> aabbs;
-    glm::vec3 camera;
-    glm::vec3 cameraDirection;
+    Camera camera;
     float verticalFieldOfView;
     float aspectRatio;
     int frameWidth = 640;
