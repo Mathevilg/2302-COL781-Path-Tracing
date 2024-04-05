@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <iostream>
+#include <vector>
 // Program with perspective correct interpolation of vertex attributes.
 
 // namespace R = COL781::Software;
@@ -12,53 +14,6 @@ using namespace glm;
 
 class RayTracer {
 public:
-
-    class Camera{
-    public:
-
-        vec3 Eye;
-        vec3 ViewDir;
-        vec3 UpVec;
-        
-        Camera(){
-            Eye = vec3(0.0f, 0.0f, 0.0f);
-            ViewDir = vec3(0.0f, 0.0f, -1.0f);
-            UpVec = vec3(0.0f, 1.0f, 0.0f);
-        }
-
-        Camera(vec3 eye, vec3 viewDir, vec3 upVec){
-            Eye = eye;
-            ViewDir = viewDir;
-            UpVec = upVec;
-        }
-
-        mat4 getViewMatrix() const{
-            return lookAt(Eye, ViewDir, UpVec);
-        }
-
-        void moveForward(float delta){
-            Eye += delta * ViewDir;
-        }
-
-        void moveRight(float delta){
-            Eye += delta * cross(ViewDir, UpVec);
-        }
-
-        void moveUp(float delta){
-            Eye += delta * UpVec;
-        }
-
-        void rotateRight(float angle){
-            ViewDir = rotate(mat4(1.0f), -radians(angle), UpVec) * vec4(ViewDir, 0.0f);
-        }
-
-        void rotateUp(float angle){
-            vec3 right = cross(ViewDir, UpVec);
-            ViewDir = rotate(mat4(1.0f), -radians(angle), right) * vec4(ViewDir, 0.0f);
-            UpVec = rotate(mat4(1.0f), -radians(angle), right) * vec4(UpVec, 0.0f);
-        }
-
-};
 
     struct Plane {
         glm::vec3 point;
@@ -77,17 +32,73 @@ public:
 
     RayTracer() {
         // Initialize the ray tracer.
-        
+        camera = vec3(0.0f, 0.0f, 0.0f);
+        cameraDirection = vec3(0.0f, 0.0f, -1.0f);
         verticalFieldOfView = 60.0f;
         aspectRatio = 4.0f / 3.0f;
         frameWidth = 640;
         frameHeight = 480;
-        spheres.push_back(Sphere{vec3(0.0f, 0.0f, -5.0f), 0.5f});
-        spheres.push_back(Sphere{vec3(1.0f, 0.0f, -5.0f), 0.5f});
-        spheres.push_back(Sphere{vec3(0.0f, 1.0f, -5.0f), 0.5f});
-        planes.push_back(Plane{vec3(0.0f, -5.0f, -10.0f), vec3(0.0f, 1.0f, 0.0f)});
-        aabbs.push_back(AABB{vec3(-2.0f, -1.0f, -5.0f), vec3(-1.0f, 1.0f, -3.0f)});
+        spheres.push_back(Sphere{vec3(0.0f, 0.0f, -5.0f), 1.0f});
+        // spheres.push_back(Sphere{vec3(1.0f, 0.0f, -5.0f), 1.0f});
+        // spheres.push_back(Sphere{vec3(0.0f, 1.0f, -5.0f), 1.0f});
+        // spheres.push_back(Sphere{vec3(-1.0f, 0.0f, -5.0f), 1.0f});
+
+        // planes.push_back(Plane{vec3(0.0f, -5.0f, -10.0f), vec3(0.0f, 1.0f, 0.0f)});
+        // aabbs.push_back(AABB{vec3(-2.0f, -1.0f, -5.0f), vec3(-1.0f, 1.0f, -3.0f)});
     }
+
+    // void render(){
+    //     // Render the scene.
+    //     // Clear the framebuffer
+    //     Uint32 *pixels = (Uint32*)framebuffer->pixels;
+    //     SDL_PixelFormat *format = framebuffer->format;
+    //     for (int i = 0; i < frameWidth; i++) {
+    //         for (int j = 0; j < frameHeight; j++) {
+    //             float x = (i + 0.5)/frameWidth;  // [0, w] -> [0, 1]
+    //             x = 2*x - 1;                     // [0, 1] -> [-1, 1]
+    //             float y = (j + 0.5)/frameHeight; // [0, h] -> [0, 1]
+    //             y = 1 - 2*y;                     // [0, 1] -> [1, -1]
+    //             vec3 origin = camera;
+    //             vec3 direction = normalize(cameraDirection + vec3(x, y, 0.0f));
+    //             float t = INFINITY;
+    //             for (int k = 0; k < spheres.size(); k++) {
+    //                 t = min(t, intersectSphere(origin, direction, spheres[k]));
+    //             }
+    //             float tPlane = INFINITY;
+    //             for (int k = 0; k < planes.size(); k++) {
+    //                 tPlane = min(tPlane, intersectPlane(origin, direction, planes[k]));
+    //             }
+
+    //             float tBox = INFINITY;
+    //             for (int k = 0; k < aabbs.size(); k++) {
+    //                 tBox = min(tBox, intersectAABB(origin, direction, aabbs[k]));
+    //             }
+
+    //             Uint32 color;
+    //             if (tBox < INFINITY || tPlane < INFINITY || t < INFINITY) {
+    //                 if(tBox < t && tBox < tPlane){
+    //                     float l = 255;
+    //                     color = SDL_MapRGBA(format, l, 0, 0, 255); // red
+    //                 }
+    //                 else if(tPlane < t){
+    //                     float l = 255;
+    //                     color = SDL_MapRGBA(format, l, 100, l, 255); // grey proportional to t
+    //                 }
+    //                 else{
+    //                     float l = 255*(1.0f - t);
+    //                     color = SDL_MapRGBA(format, l, l, l, 255); // grey proportional to t
+    //                 }
+    //             } else {
+    //                 color = SDL_MapRGBA(format, 0, 0, 0, 255); // black
+    //             }
+    //             pixels[i + frameWidth*j] = color;
+    //         }
+    //     }
+
+    //     // Update screen to apply the changes
+    //     SDL_BlitScaled(framebuffer, NULL, windowSurface, NULL);
+    //     SDL_UpdateWindowSurface(window);
+    // }
 
     vec3 computeRadiance(const vec3& point, const vec3& normal, const vec3& viewDirection, const std::vector<Sphere>& spheres, const std::vector<Plane>& planes, const std::vector<AABB>& aabbs, const std::vector<vec3>& lightSources) {
         vec3 radiance(0.0f);
@@ -387,7 +398,8 @@ public:
     std::vector<float> radii;
     std::vector<Plane> planes;
     std::vector<AABB> aabbs;
-    Camera camera;
+    glm::vec3 camera;
+    glm::vec3 cameraDirection;
     float verticalFieldOfView;
     float aspectRatio;
     int frameWidth = 640;
