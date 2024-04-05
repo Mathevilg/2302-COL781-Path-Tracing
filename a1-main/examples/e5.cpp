@@ -89,7 +89,80 @@ public:
         aabbs.push_back(AABB{vec3(-2.0f, -1.0f, -5.0f), vec3(-1.0f, 1.0f, -3.0f)});
     }
 
-    void render(){
+    vec3 computeRadiance(const vec3& point, const vec3& normal, const vec3& viewDirection, const std::vector<Sphere>& spheres, const std::vector<Plane>& planes, const std::vector<AABB>& aabbs, const std::vector<vec3>& lightSources) {
+        vec3 radiance(0.0f);
+        // // print point, normal, viewDirection
+        // std::cout << "point: " << point.x << " " << point.y << " " << point.z << std::endl;
+        // std::cout << "normal: " << normal.x << " " << normal.y << " " << normal.z << std::endl;
+        // std::cout << "viewDirection: " << viewDirection.x << " " << viewDirection.y << " " << viewDirection.z << std::endl;
+
+        // // print lightSources
+        // for (const auto& lightSource : lightSources) {
+        //     std::cout << "lightSource: " << lightSource.x << " " << lightSource.y << " " << lightSource.z << std::endl;
+        // }
+
+        // // print spheres
+        // for (const auto& sphere : spheres) {
+        //     std::cout << "sphere: " << sphere.center.x << " " << sphere.center.y << " " << sphere.center.z << " " << sphere.radius << std::endl;
+        // }
+
+        // // print planes
+        // for (const auto& plane : planes) {
+        //     std::cout << "plane: " << plane.point.x << " " << plane.point.y << " " << plane.point.z << " " << plane.normal.x << " " << plane.normal.y << " " << plane.normal.z << std::endl;
+        // }
+
+        // // print aabbs
+        // for (const auto& aabb : aabbs) {
+        //     std::cout << "aabb: " << aabb.min.x << " " << aabb.min.y << " " << aabb.min.z << " " << aabb.max.x << " " << aabb.max.y << " " << aabb.max.z << std::endl;
+        // }
+
+
+
+        for (const auto& lightSource : lightSources) {
+            vec3 lightDirection = normalize(lightSource - point);
+            bool isVisible = true;
+            for (const auto& sphere : spheres) {
+                // float t = intersectSphere(point + 0.001f * normal, lightDirection, sphere);
+                float t = intersectSphere(point, lightDirection, sphere);
+                if (t < INFINITY) {
+                    isVisible = false;
+                    break;
+                }
+            }
+            // if (isVisible) {
+            //     for (const auto& plane : planes) {
+            //         float t = intersectPlane(point + 0.001f * normal, lightDirection, plane);
+            //         if (t < INFINITY) {
+            //             isVisible = false;
+            //             break;
+            //         }
+            //     }
+            // }
+            // if (isVisible) {
+            //     for (const auto& aabb : aabbs) {
+            //         float t = intersectAABB(point + 0.001f * normal, lightDirection, aabb);
+            //         if (t < INFINITY) {
+            //             isVisible = false;
+            //             break;
+            //         }
+            //     }
+            // }
+            isVisible = true;
+            if (isVisible) {
+                float irradiance = dot(normal, lightDirection);
+                vec3 diffuseAlbedo = vec3(0.8f, 0.8f, 0.8f); // Example diffuse albedo
+                vec3 exitantRadiance = irradiance * diffuseAlbedo;
+                radiance += exitantRadiance;
+                // print here
+                std::cout << "here" << std::endl;
+            }
+        }
+        // print radiance
+        // std::cout << "radiance: " << radiance.x << " " << radiance.y << " " << radiance.z << std::endl;
+        return radiance;
+    }
+
+    void render() {
         // Render the scene.
         // Clear the framebuffer
         Uint32 *pixels = (Uint32*)framebuffer->pixels;
@@ -100,21 +173,21 @@ public:
                 x = 2*x - 1;                     // [0, 1] -> [-1, 1]
                 float y = (j + 0.5)/frameHeight; // [0, h] -> [0, 1]
                 y = 1 - 2*y;                     // [0, 1] -> [1, -1]
-                vec3 origin = camera.Eye;
-                vec3 direction = normalize(camera.ViewDir + vec3(x, y, 0.0f));
+                vec3 origin = camera;
+                vec3 direction = normalize(cameraDirection + vec3(x, y, 0.0f));
                 float t = INFINITY;
                 for (int k = 0; k < spheres.size(); k++) {
                     t = min(t, intersectSphere(origin, direction, spheres[k]));
                 }
                 float tPlane = INFINITY;
-                for (int k = 0; k < planes.size(); k++) {
-                    tPlane = min(tPlane, intersectPlane(origin, direction, planes[k]));
-                }
+                // for (int k = 0; k < planes.size(); k++) {
+                //     tPlane = min(tPlane, intersectPlane(origin, direction, planes[k]));
+                // }
 
                 float tBox = INFINITY;
-                for (int k = 0; k < aabbs.size(); k++) {
-                    tBox = min(tBox, intersectAABB(origin, direction, aabbs[k]));
-                }
+                // for (int k = 0; k < aabbs.size(); k++) {
+                //     tBox = min(tBox, intersectAABB(origin, direction, aabbs[k]));
+                // }
 
                 Uint32 color;
                 if (tBox < INFINITY || tPlane < INFINITY || t < INFINITY) {
@@ -127,11 +200,28 @@ public:
                         color = SDL_MapRGBA(format, l, 100, l, 255); // grey proportional to t
                     }
                     else{
-                        float l = 255*(1.0f - t);
-                        color = SDL_MapRGBA(format, l, l, l, 255); // grey proportional to t
+                        vec3 point = origin + t * direction;
+                        vec3 normal;
+                        int k; // Declare the variable 'k' here
+                        if (tBox < tPlane) {
+                            normal = computeNormalAABB(point, aabbs[k]);
+                        } else {
+                            normal = computeNormalSphere(point, spheres[k]);
+                        }
+                        vec3 viewDirection = normalize(camera - point);
+                        vec3 radiance = computeRadiance(point, normal, viewDirection, spheres, planes, aabbs, lightSources);
+                        // std::cout << radiance.r << " " << radiance.g << " " << radiance.b << std::endl;
+                        // radiance = gammaCorrection(radiance);
+                        // // std::cout << radiance.r << " " << radiance.g << " " << radiance.b << std::endl;
+                        float r = 255 * radiance.r;
+                        float g = 255 * radiance.g;
+                        float b = 255 * radiance.b;
+                        color = SDL_MapRGBA(format, r, g, b, 255); // grey proportional to t
+                        // float l = 255*(1.0f - t);
+                        // color = SDL_MapRGBA(format, l, l, l, 255); // grey proportional to t
                     }
                 } else {
-                    color = SDL_MapRGBA(format, 0, 0, 0, 255); // black
+                    color = SDL_MapRGBA(format, 0, 255, 0, 255); // black
                 }
                 pixels[i + frameWidth*j] = color;
             }
@@ -141,6 +231,30 @@ public:
         SDL_BlitScaled(framebuffer, NULL, windowSurface, NULL);
         SDL_UpdateWindowSurface(window);
     }
+
+    vec3 computeNormalSphere(const vec3& point, const Sphere& sphere) {
+        return normalize(point - sphere.center);
+    }
+
+    vec3 computeNormalAABB(const vec3& point, const AABB& aabb) {
+        vec3 normal(0.0f);
+        for (int i = 0; i < 3; ++i) {
+            if (point[i] < aabb.min[i] + 1e-6) {
+                normal[i] = -1.0f;
+            } else if (point[i] > aabb.max[i] - 1e-6) {
+                normal[i] = 1.0f;
+            }
+        }
+        return normal;
+    }
+
+    vec3 gammaCorrection(const vec3& radiance) {
+        return pow(radiance, vec3(1.0f/2.2f));
+    }
+
+    std::vector<vec3> lightSources = {vec3(0.0f, 10.0f, -5.0f)};
+
+
     // void render(){  
     //     // Render the scene.
     //     // Clear the framebuffer
