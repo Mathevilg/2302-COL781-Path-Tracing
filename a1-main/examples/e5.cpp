@@ -15,34 +15,150 @@ using namespace glm;
 class RayTracer {
 public:
 
+    class Camera{
+    public:
+
+        vec3 Eye;
+        vec3 ViewDir;
+        vec3 UpVec;
+        
+        Camera(){
+            Eye = vec3(0.0f, 0.0f, 0.0f);
+            ViewDir = vec3(0.0f, 0.0f, -1.0f);
+            UpVec = vec3(0.0f, 1.0f, 0.0f);
+        }
+
+        Camera(vec3 eye, vec3 viewDir, vec3 upVec){
+            Eye = eye;
+            ViewDir = viewDir;
+            UpVec = upVec;
+        }
+
+        mat4 getViewMatrix() const{
+            return lookAt(Eye, ViewDir, UpVec);
+        }
+
+        void moveForward(float delta){
+            Eye += delta * ViewDir;
+        }
+
+        void moveRight(float delta){
+            Eye += delta * cross(ViewDir, UpVec);
+        }
+
+        void moveUp(float delta){
+            Eye += delta * UpVec;
+        }
+
+        void rotateRight(float angle){
+            ViewDir = rotate(mat4(1.0f), -radians(angle), UpVec) * vec4(ViewDir, 0.0f);
+        }
+
+        void rotateUp(float angle){
+            vec3 right = cross(ViewDir, UpVec);
+            ViewDir = rotate(mat4(1.0f), -radians(angle), right) * vec4(ViewDir, 0.0f);
+            UpVec = rotate(mat4(1.0f), -radians(angle), right) * vec4(UpVec, 0.0f);
+        }
+
+};
+
     struct Plane {
         glm::vec3 point;
         glm::vec3 normal;
+        glm::mat4 transform;
+
+        // void applyTransformation() {
+        //     // Apply transformation to the point on the plane and its normal
+        //     vec4 transformedPoint = transform * vec4(point, 1.0f);
+        //     vec4 transformedNormal = glm::transpose(glm::inverse(transform)) * vec4(normal, 0.0f);
+        //     point = vec3(transformedPoint);
+        //     normal = vec3(transformedNormal);
+        //     transform = glm::mat4(1.0f);
+        // }
+
+        void translateShape(const glm::vec3& translation) {
+            // Update the transformation matrix of the shape
+            transform = glm::translate(transform, translation);
+        }
+    
+        void rotateShape(float angle, const glm::vec3& axis) {
+            // Update the transformation matrix of the shape
+            transform = glm::rotate(transform, angle, axis);
+        }
+        
+        void scaleShape( const glm::vec3& scale) {
+            // Update the transformation matrix of the shape
+            transform = glm::scale(transform, scale);
+        }
     };
 
     struct AABB {
         glm::vec3 min;
         glm::vec3 max;
+        glm::mat4 transform;
+
+        // void applyTransformation() {
+        //     // Apply transformation to the minimum and maximum points of the AABB
+        //     vec4 transformedMin = transform * vec4(min, 1.0f);
+        //     vec4 transformedMax = transform * vec4(max, 1.0f);
+        //     min = vec3(transformedMin);
+        //     max = vec3(transformedMax);
+        //     transform = glm::mat4(1.0f);
+        // }
+
+        void translateShape(const glm::vec3& translation) {
+            // Update the transformation matrix of the shape
+            transform = glm::translate(transform, translation);
+        }
+    
+        void rotateShape(float angle, const glm::vec3& axis) {
+            // Update the transformation matrix of the shape
+            transform = glm::rotate(transform, angle, axis);
+        }
+        
+        void scaleShape( const glm::vec3& scale) {
+            // Update the transformation matrix of the shape
+            transform = glm::scale(transform, scale);
+        }
     };
 
     struct Sphere {
         glm::vec3 center;
         float radius;
+        glm::mat4 transform;
+
+        void translateShape(const glm::vec3& translation) {
+            // Update the transformation matrix of the shape
+            transform = glm::translate(transform, translation);
+        }
+    
+        void rotateShape(float angle, const glm::vec3& axis) {
+            // Update the transformation matrix of the shape
+            transform = glm::rotate(transform, angle, axis);
+        }
+        
+        void scaleShape( const glm::vec3& scale) {
+            // Update the transformation matrix of the shape
+            transform = glm::scale(transform, scale);
+        }
     };
 
     RayTracer() {
         // Initialize the ray tracer.
-        camera = vec3(0.0f, 0.0f, 0.0f);
-        cameraDirection = vec3(0.0f, 0.0f, -1.0f);
+        // camera = vec3(0.0f, 0.0f, 0.0f);
+        // cameraDirection = vec3(0.0f, 0.0f, -1.0f);
         verticalFieldOfView = 60.0f;
         aspectRatio = 4.0f / 3.0f;
         frameWidth = 640;
-        frameHeight = 480;
-        spheres.push_back(Sphere{vec3(0.0f, 0.0f, -5.0f), 1.0f});
+        frameHeight = 640;
+        spheres.push_back(Sphere{vec3(0.0f, 0.0f, -5.0f), 1.0f, glm::mat4(1.0f)});
         // spheres.push_back(Sphere{vec3(1.0f, 0.0f, -5.0f), 1.0f});
         // spheres.push_back(Sphere{vec3(0.0f, 1.0f, -5.0f), 1.0f});
         // spheres.push_back(Sphere{vec3(-1.0f, 0.0f, -5.0f), 1.0f});
-
+        aabbs.push_back(AABB{vec3(-1.0f, -1.0f, -1.0f), vec3(1.0f, 1.0f, 1.0f), glm::mat4(1.0f)});
+        // aabbs[0].scaleShape(vec3(1.0f, 2.0f, 1.0f));
+        // aabbs[0].rotateShape(radians(45.0f), vec3(1.0f, 0.0f, 0.0f));
+        aabbs[0].translateShape(vec3(-2.0f, 0.0f, -5.0f));
         // planes.push_back(Plane{vec3(0.0f, -5.0f, -10.0f), vec3(0.0f, 1.0f, 0.0f)});
         // aabbs.push_back(AABB{vec3(-2.0f, -1.0f, -5.0f), vec3(-1.0f, 1.0f, -3.0f)});
     }
@@ -165,7 +281,7 @@ public:
                 vec3 exitantRadiance = irradiance * diffuseAlbedo;
                 radiance += exitantRadiance;
                 // print here
-                std::cout << "here" << std::endl;
+                // std::cout << "here" << std::endl;
             }
         }
         // print radiance
@@ -184,21 +300,21 @@ public:
                 x = 2*x - 1;                     // [0, 1] -> [-1, 1]
                 float y = (j + 0.5)/frameHeight; // [0, h] -> [0, 1]
                 y = 1 - 2*y;                     // [0, 1] -> [1, -1]
-                vec3 origin = camera;
-                vec3 direction = normalize(cameraDirection + vec3(x, y, 0.0f));
+                vec3 origin = camera.Eye;
+                vec3 direction = normalize(camera.ViewDir + vec3(x, y, 0.0f));
                 float t = INFINITY;
                 for (int k = 0; k < spheres.size(); k++) {
                     t = min(t, intersectSphere(origin, direction, spheres[k]));
                 }
                 float tPlane = INFINITY;
-                // for (int k = 0; k < planes.size(); k++) {
-                //     tPlane = min(tPlane, intersectPlane(origin, direction, planes[k]));
-                // }
+                for (int k = 0; k < planes.size(); k++) {
+                    tPlane = min(tPlane, intersectPlane(origin, direction, planes[k]));
+                }
 
                 float tBox = INFINITY;
-                // for (int k = 0; k < aabbs.size(); k++) {
-                //     tBox = min(tBox, intersectAABB(origin, direction, aabbs[k]));
-                // }
+                for (int k = 0; k < aabbs.size(); k++) {
+                    tBox = min(tBox, intersectAABB(origin, direction, aabbs[k]));
+                }
 
                 Uint32 color;
                 if (tBox < INFINITY || tPlane < INFINITY || t < INFINITY) {
@@ -219,7 +335,7 @@ public:
                         } else {
                             normal = computeNormalSphere(point, spheres[k]);
                         }
-                        vec3 viewDirection = normalize(camera - point);
+                        vec3 viewDirection = normalize(camera.Eye - point);
                         vec3 radiance = computeRadiance(point, normal, viewDirection, spheres, planes, aabbs, lightSources);
                         // std::cout << radiance.r << " " << radiance.g << " " << radiance.b << std::endl;
                         // radiance = gammaCorrection(radiance);
@@ -299,20 +415,34 @@ public:
 
     float intersectSphere(const vec3& origin, const vec3& direction, const Sphere& sphere) {
         // Compute the intersection of a ray with a sphere.
-        vec3 oc = origin - sphere.center;
-        float a = dot(direction, direction);
-        float b = 2.0f * dot(oc, direction);
-        float c = dot(oc, oc) - (sphere.radius * sphere.radius);
+        glm::vec3 transformedOrigin = glm::inverse(sphere.transform) * glm::vec4(origin, 1.0f);
+        glm::vec3 transformedDirection = glm::inverse(sphere.transform) * glm::vec4(direction, 0.0f);
+        
+        vec3 transformedCenter = vec3(sphere.transform * vec4(sphere.center, 1.0f));
+        vec3 boundaryPoint = sphere.center + vec3(sphere.radius, 0.0f, 0.0f);
+        vec4 transformedBoundaryPoint = sphere.transform * vec4(boundaryPoint, 1.0f);
+        float transformedRadius = length(vec3(transformedBoundaryPoint) - sphere.center);
+
+        vec3 oc = transformedOrigin - transformedCenter;
+        float a = dot(transformedDirection, transformedDirection);
+        float b = 2.0f * dot(oc, transformedDirection);
+        float c = dot(oc, oc) - (transformedRadius * transformedRadius);
         float discriminant = b * b - 4.0f * a * c;
         if (discriminant < 0.0f) return INFINITY;
         return (-b - sqrt(discriminant)) / (2.0f * a);
     }
 
     float intersectPlane(const glm::vec3& origin, const glm::vec3& direction, const Plane& plane) {
-        float denom = dot(plane.normal, direction);
+        glm::vec3 transformedOrigin = glm::inverse(plane.transform) * glm::vec4(origin, 1.0f);
+        glm::vec3 transformedDirection = glm::inverse(plane.transform) * glm::vec4(direction, 0.0f);
+
+        vec3 transformedPoint = vec3(plane.transform * vec4(plane.point, 1.0f));
+        vec3 transformedNormal = vec3(glm::transpose(glm::inverse(plane.transform)) * vec4(plane.normal, 0.0f));
+
+        float denom = dot(transformedNormal, transformedDirection);
         if (abs(denom) > 1e-6) {
-            glm::vec3 p0l0 = plane.point - origin;
-            float t = dot(p0l0, plane.normal) / denom;
+            glm::vec3 p0l0 = transformedPoint - transformedOrigin;
+            float t = dot(p0l0, transformedNormal) / denom;
             if (t >= 0) {
                 return t;
            }
@@ -323,30 +453,34 @@ public:
     float intersectAABB(const glm::vec3& origin, const glm::vec3& direction, const AABB& aabb) {
         float tmin = -INFINITY;
         float tmax = INFINITY;
-    
+        glm::vec3 transformedOrigin = glm::inverse(aabb.transform) * glm::vec4(origin, 1.0f);
+        glm::vec3 transformedDirection = glm::inverse(aabb.transform) * glm::vec4(direction, 0.0f);
+        vec3 transformedMin = vec3(aabb.transform * vec4(aabb.min, 1.0f));
+        vec3 transformedMax = vec3(aabb.transform * vec4(aabb.max, 1.0f));
+
         for (int i = 0; i < 3; ++i) {
-            if (abs(direction[i]) < 1e-6) {
-                if (origin[i] < aabb.min[i] || origin[i] > aabb.max[i]) {
+            if (abs(transformedDirection[i]) < 1e-6) {
+                if (transformedOrigin[i] < transformedMin[i] || transformedOrigin[i] > transformedMax[i]) {
                     return false;
                 }
             } else {
-                float t1 = (aabb.min[i] - origin[i]) / direction[i];
-                float t2 = (aabb.max[i] - origin[i]) / direction[i];
+                float t1 = (transformedMin[i] - transformedOrigin[i]) / transformedDirection[i];
+                float t2 = (transformedMax[i] - transformedOrigin[i]) / transformedDirection[i];
     
                 tmin = glm::max(tmin, glm::min(t1, t2));
                 tmax = glm::min(tmax, glm::max(t1, t2));
             }
         }
-    
+
         if (tmax >= tmin && tmax >= 0) {
             if(tmin<0){
                 return tmax;
             }
             else{
                 return tmin;
-            }            
+            }
         }
-    
+
         return INFINITY;
     }
 
@@ -398,8 +532,9 @@ public:
     std::vector<float> radii;
     std::vector<Plane> planes;
     std::vector<AABB> aabbs;
-    glm::vec3 camera;
-    glm::vec3 cameraDirection;
+    Camera camera;
+    // glm::vec3 camera;
+    // glm::vec3 cameraDirection;
     float verticalFieldOfView;
     float aspectRatio;
     int frameWidth = 640;
