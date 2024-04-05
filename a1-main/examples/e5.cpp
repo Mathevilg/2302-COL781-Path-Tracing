@@ -151,15 +151,20 @@ public:
         aspectRatio = 4.0f / 3.0f;
         frameWidth = 640;
         frameHeight = 640;
-        spheres.push_back(Sphere{vec3(0.0f, 0.0f, -5.0f), 1.0f, glm::mat4(1.0f)});
+        spheres.push_back(Sphere{vec3(0.0f, 0.0f, 0.0f), 1.0f, glm::mat4(1.0f)});
+        // spheres[0].scaleShape(vec3(2.0f, 2.0f, 1.0f));
+        spheres[0].translateShape(vec3(0.0f, 0.0f, -5.0f));
+        // spheres[0].rotateShape(radians(-45.0f), vec3(0.0f, 1.0f, 0.0f));
         // spheres.push_back(Sphere{vec3(1.0f, 0.0f, -5.0f), 1.0f});
         // spheres.push_back(Sphere{vec3(0.0f, 1.0f, -5.0f), 1.0f});
         // spheres.push_back(Sphere{vec3(-1.0f, 0.0f, -5.0f), 1.0f});
         aabbs.push_back(AABB{vec3(-1.0f, -1.0f, -1.0f), vec3(1.0f, 1.0f, 1.0f), glm::mat4(1.0f)});
-        // aabbs[0].scaleShape(vec3(1.0f, 2.0f, 1.0f));
-        // aabbs[0].rotateShape(radians(45.0f), vec3(1.0f, 0.0f, 0.0f));
-        aabbs[0].translateShape(vec3(-2.0f, 0.0f, -5.0f));
-        // planes.push_back(Plane{vec3(0.0f, -5.0f, -10.0f), vec3(0.0f, 1.0f, 0.0f)});
+        aabbs[0].translateShape(vec3(-2.5f, 0.0f, -6.0f));
+        aabbs[0].rotateShape(radians(45.0f), vec3(1.0f, 0.0f, 0.0f));
+        aabbs[0].scaleShape(vec3(1.0f, 2.0f, 1.0f));
+        planes.push_back(Plane{vec3(0.0f, -5.0f, -10.0f), vec3(0.0f, 1.0f, 0.0f), glm::mat4(1.0f)});
+        // planes[0].translateShape(vec3(0.0f, 4.0f, 0.0f));
+        // planes[0].rotateShape(radians(45.0f), vec3(0.0f, 0.0f, 1.0f));
         // aabbs.push_back(AABB{vec3(-2.0f, -1.0f, -5.0f), vec3(-1.0f, 1.0f, -3.0f)});
     }
 
@@ -417,16 +422,11 @@ public:
         // Compute the intersection of a ray with a sphere.
         glm::vec3 transformedOrigin = glm::inverse(sphere.transform) * glm::vec4(origin, 1.0f);
         glm::vec3 transformedDirection = glm::inverse(sphere.transform) * glm::vec4(direction, 0.0f);
-        
-        vec3 transformedCenter = vec3(sphere.transform * vec4(sphere.center, 1.0f));
-        vec3 boundaryPoint = sphere.center + vec3(sphere.radius, 0.0f, 0.0f);
-        vec4 transformedBoundaryPoint = sphere.transform * vec4(boundaryPoint, 1.0f);
-        float transformedRadius = length(vec3(transformedBoundaryPoint) - sphere.center);
-
-        vec3 oc = transformedOrigin - transformedCenter;
+    
+        vec3 oc = transformedOrigin - sphere.center;
         float a = dot(transformedDirection, transformedDirection);
         float b = 2.0f * dot(oc, transformedDirection);
-        float c = dot(oc, oc) - (transformedRadius * transformedRadius);
+        float c = dot(oc, oc) - (sphere.radius * sphere.radius);
         float discriminant = b * b - 4.0f * a * c;
         if (discriminant < 0.0f) return INFINITY;
         return (-b - sqrt(discriminant)) / (2.0f * a);
@@ -436,13 +436,12 @@ public:
         glm::vec3 transformedOrigin = glm::inverse(plane.transform) * glm::vec4(origin, 1.0f);
         glm::vec3 transformedDirection = glm::inverse(plane.transform) * glm::vec4(direction, 0.0f);
 
-        vec3 transformedPoint = vec3(plane.transform * vec4(plane.point, 1.0f));
         vec3 transformedNormal = vec3(glm::transpose(glm::inverse(plane.transform)) * vec4(plane.normal, 0.0f));
 
-        float denom = dot(transformedNormal, transformedDirection);
+        float denom = dot(plane.normal, transformedDirection);
         if (abs(denom) > 1e-6) {
-            glm::vec3 p0l0 = transformedPoint - transformedOrigin;
-            float t = dot(p0l0, transformedNormal) / denom;
+            glm::vec3 p0l0 = plane.point - transformedOrigin;
+            float t = dot(p0l0, plane.normal) / denom;
             if (t >= 0) {
                 return t;
            }
@@ -455,17 +454,17 @@ public:
         float tmax = INFINITY;
         glm::vec3 transformedOrigin = glm::inverse(aabb.transform) * glm::vec4(origin, 1.0f);
         glm::vec3 transformedDirection = glm::inverse(aabb.transform) * glm::vec4(direction, 0.0f);
-        vec3 transformedMin = vec3(aabb.transform * vec4(aabb.min, 1.0f));
-        vec3 transformedMax = vec3(aabb.transform * vec4(aabb.max, 1.0f));
+        // vec3 transformedMin = vec3(aabb.transform * vec4(aabb.min, 1.0f));
+        // vec3 transformedMax = vec3(aabb.transform * vec4(aabb.max, 1.0f));
 
         for (int i = 0; i < 3; ++i) {
             if (abs(transformedDirection[i]) < 1e-6) {
-                if (transformedOrigin[i] < transformedMin[i] || transformedOrigin[i] > transformedMax[i]) {
+                if (transformedOrigin[i] < aabb.min[i] || transformedOrigin[i] > aabb.max[i]) {
                     return false;
                 }
             } else {
-                float t1 = (transformedMin[i] - transformedOrigin[i]) / transformedDirection[i];
-                float t2 = (transformedMax[i] - transformedOrigin[i]) / transformedDirection[i];
+                float t1 = (aabb.min[i] - transformedOrigin[i]) / transformedDirection[i];
+                float t2 = (aabb.max[i] - transformedOrigin[i]) / transformedDirection[i];
     
                 tmin = glm::max(tmin, glm::min(t1, t2));
                 tmax = glm::min(tmax, glm::max(t1, t2));
