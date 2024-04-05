@@ -151,21 +151,21 @@ public:
         aspectRatio = 4.0f / 3.0f;
         frameWidth = 640;
         frameHeight = 640;
-        spheres.push_back(Sphere{vec3(0.0f, 0.0f, 0.0f), 1.0f, glm::mat4(1.0f)});
+        spheres.push_back(Sphere{vec3(0.0f, 0.0f, 0.0f), 0.5f, glm::mat4(1.0f)});
         // spheres[0].scaleShape(vec3(2.0f, 2.0f, 1.0f));
         spheres[0].translateShape(vec3(0.0f, 0.0f, -5.0f));
         // spheres[0].rotateShape(radians(-45.0f), vec3(0.0f, 1.0f, 0.0f));
-        // spheres.push_back(Sphere{vec3(1.0f, 0.0f, -5.0f), 1.0f});
-        // spheres.push_back(Sphere{vec3(0.0f, 1.0f, -5.0f), 1.0f});
-        // spheres.push_back(Sphere{vec3(-1.0f, 0.0f, -5.0f), 1.0f});
-        aabbs.push_back(AABB{vec3(-1.0f, -1.0f, -1.0f), vec3(1.0f, 1.0f, 1.0f), glm::mat4(1.0f)});
-        aabbs[0].translateShape(vec3(-2.5f, 0.0f, -6.0f));
-        aabbs[0].rotateShape(radians(45.0f), vec3(1.0f, 0.0f, 0.0f));
-        aabbs[0].scaleShape(vec3(1.0f, 2.0f, 1.0f));
-        planes.push_back(Plane{vec3(0.0f, -5.0f, -10.0f), vec3(0.0f, 1.0f, 0.0f), glm::mat4(1.0f)});
+        // spheres.push_back(Sphere{vec3(2.0f, 0.0f, -5.0f), 1.0f, glm::mat4(1.0f)});
+        // spheres.push_back(Sphere{vec3(0.0f, 1.0f, -5.0f), 0.5f, glm::mat4(1.0f)});
+        // spheres.push_back(Sphere{vec3(-1.0f, 0.0f, -5.0f), 0.5f, glm::mat4(1.0f)});
+        aabbs.push_back(AABB{vec3(-1.0f, -1.5f, -1.0f), vec3(1.0f, 1.5f, 1.0f), glm::mat4(1.0f)});
+        aabbs[0].translateShape(vec3(-2.0f, 0.0f, -6.0f));
+        // aabbs[0].rotateShape(radians(45.0f), vec3(0.0f, 0.0f, 1.0f));
+        // aabbs[0].scaleShape(vec3(1.0f, 2.0f, 1.0f));
+        // planes.push_back(Plane{vec3(0.0f, -5.0f, -10.0f), vec3(0.0f, 1.0f, 0.0f), glm::mat4(1.0f)});
         // planes[0].translateShape(vec3(0.0f, 4.0f, 0.0f));
         // planes[0].rotateShape(radians(45.0f), vec3(0.0f, 0.0f, 1.0f));
-        // aabbs.push_back(AABB{vec3(-2.0f, -1.0f, -5.0f), vec3(-1.0f, 1.0f, -3.0f)});
+        // aabbs.push_back(AABB{vec3(-2.0f, -1.0f, -5.0f), vec3(-1.0f, 1.0f, -3.0f), glm::mat4(1.0f)});
     }
 
     // void render(){
@@ -391,7 +391,7 @@ public:
     }
 
     vec3 computeNormalSphere(const vec3& point, const Sphere& sphere) {
-        return normalize(point - sphere.center);
+        return vec3(glm::transpose(glm::inverse(sphere.transform)) * vec4(normalize(point - sphere.center), 0.0f));
     }
 
     vec3 computeNormalAABB(const vec3& point, const AABB& aabb) {
@@ -403,11 +403,11 @@ public:
                 normal[i] = 1.0f;
             }
         }
-        return normal;
+        return vec3(glm::transpose(glm::inverse(aabb.transform)) * vec4(normal, 0.0f));
     }
 
     vec3 computeNormalPlane(const vec3& point, const Plane& plane) {
-        return plane.normal;
+        return vec3(glm::transpose(glm::inverse(plane.transform)) * vec4(plane.normal, 0.0f));
     }
 
     vec3 gammaCorrection(const vec3& radiance) {
@@ -466,7 +466,7 @@ public:
         glm::vec3 transformedOrigin = glm::inverse(plane.transform) * glm::vec4(origin, 1.0f);
         glm::vec3 transformedDirection = glm::inverse(plane.transform) * glm::vec4(direction, 0.0f);
 
-        vec3 transformedNormal = vec3(glm::transpose(glm::inverse(plane.transform)) * vec4(plane.normal, 0.0f));
+        // vec3 transformedNormal = vec3(glm::transpose(glm::inverse(plane.transform)) * vec4(plane.normal, 0.0f));
 
         float denom = dot(plane.normal, transformedDirection);
         if (abs(denom) > 1e-6) {
