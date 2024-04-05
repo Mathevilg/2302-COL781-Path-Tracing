@@ -255,31 +255,31 @@ public:
             bool isVisible = true;
             for (const auto& sphere : spheres) {
                 // float t = intersectSphere(point + 0.001f * normal, lightDirection, sphere);
-                float t = intersectSphere(point, lightDirection, sphere);
-                if (t < INFINITY) {
+                float t = intersectSphere(point + 0.001f * normal, lightDirection, sphere);
+                if (t < INFINITY && t > 0.0f) {
                     isVisible = false;
                     break;
                 }
             }
-            // if (isVisible) {
-            //     for (const auto& plane : planes) {
-            //         float t = intersectPlane(point + 0.001f * normal, lightDirection, plane);
-            //         if (t < INFINITY) {
-            //             isVisible = false;
-            //             break;
-            //         }
-            //     }
-            // }
-            // if (isVisible) {
-            //     for (const auto& aabb : aabbs) {
-            //         float t = intersectAABB(point + 0.001f * normal, lightDirection, aabb);
-            //         if (t < INFINITY) {
-            //             isVisible = false;
-            //             break;
-            //         }
-            //     }
-            // }
-            isVisible = true;
+            if (isVisible) {
+                for (const auto& plane : planes) {
+                    float t = intersectPlane(point + 0.001f * normal, lightDirection, plane);
+                    if (t < INFINITY && t > 0.0f) {
+                        isVisible = false;
+                        break;
+                    }
+                }
+            }
+            if (isVisible) {
+                for (const auto& aabb : aabbs) {
+                    float t = intersectAABB(point + 0.001f * normal, lightDirection, aabb);
+                    if (t < INFINITY && t > 0.0f) {
+                        isVisible = false;
+                        break;
+                    }
+                }
+            }
+            // isVisible = true;
             if (isVisible) {
                 float irradiance = dot(normal, lightDirection);
                 vec3 diffuseAlbedo = vec3(0.8f, 0.8f, 0.8f); // Example diffuse albedo
@@ -308,21 +308,40 @@ public:
                 vec3 origin = camera.Eye;
                 vec3 direction = normalize(camera.ViewDir + vec3(x, y, 0.0f));
                 float t = INFINITY;
+                int k_t = -1;
+                int k_plane = -1;
+                int k_box = -1;
+                // k_t , k_plane, k_box are the minimum indices of the sphere, plane and aabb respectively
                 for (int k = 0; k < spheres.size(); k++) {
-                    t = min(t, intersectSphere(origin, direction, spheres[k]));
+                    float t_temp = intersectSphere(origin, direction, spheres[k]);
+                    if(t_temp < t){
+                        t = t_temp;
+                        k_t = k;
+                    }
                 }
                 float tPlane = INFINITY;
+                // k_t , k_plane, k_box are the minimum indices of the sphere, plane and aabb respectively
                 for (int k = 0; k < planes.size(); k++) {
-                    tPlane = min(tPlane, intersectPlane(origin, direction, planes[k]));
+                    float t_temp = intersectPlane(origin, direction, planes[k]);
+                    if(t_temp < tPlane){
+                        tPlane = t_temp;
+                        k_plane = k;
+                    }
                 }
 
                 float tBox = INFINITY;
+                // k_t , k_plane, k_box are the minimum indices of the sphere, plane and aabb respectively
+
                 for (int k = 0; k < aabbs.size(); k++) {
-                    tBox = min(tBox, intersectAABB(origin, direction, aabbs[k]));
+                    float t_temp = intersectAABB(origin, direction, aabbs[k]);
+                    if(t_temp < tBox){
+                        tBox = t_temp;
+                        k_box = k;
+                    }
                 }
 
                 Uint32 color;
-                if (tBox < INFINITY || tPlane < INFINITY || t < INFINITY) {
+                if ((tBox < INFINITY && tBox > 0.0f) || (tPlane < INFINITY && tPlane > 0.0f) || (t < INFINITY && t > 0.0f)) {
                     if(tBox < t && tBox < tPlane){
                         float l = 255;
                         color = SDL_MapRGBA(format, l, 0, 0, 255); // red
@@ -335,10 +354,17 @@ public:
                         vec3 point = origin + t * direction;
                         vec3 normal;
                         int k; // Declare the variable 'k' here
-                        if (tBox < tPlane) {
-                            normal = computeNormalAABB(point, aabbs[k]);
-                        } else {
-                            normal = computeNormalSphere(point, spheres[k]);
+                        if(k_t != -1){
+                            point = origin + t * direction;
+                            normal = computeNormalSphere(point, spheres[k_t]);
+                        }
+                        else if(k_plane != -1){
+                            point = origin + tPlane * direction;
+                            normal = computeNormalPlane(point, planes[k_plane]);
+                        }
+                        else if(k_box != -1){
+                            point = origin + tBox * direction;
+                            normal = computeNormalAABB(point, aabbs[k_box]);
                         }
                         vec3 viewDirection = normalize(camera.Eye - point);
                         vec3 radiance = computeRadiance(point, normal, viewDirection, spheres, planes, aabbs, lightSources);
@@ -378,6 +404,10 @@ public:
             }
         }
         return normal;
+    }
+
+    vec3 computeNormalPlane(const vec3& point, const Plane& plane) {
+        return plane.normal;
     }
 
     vec3 gammaCorrection(const vec3& radiance) {
